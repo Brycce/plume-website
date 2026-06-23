@@ -335,6 +335,9 @@
 
 <script>
 (function(){
+  // ===== Spam detection helpers =====
+  var formMountedAt = Date.now();
+
   // ===== Gallery filter =====
   var cats = [
     { key:"all",       label:"All work" },
@@ -478,6 +481,10 @@
           '<span style="font-size:13px;font-weight:600">Project details</span>' +
           '<textarea name="message" rows="4" placeholder="Tell me what you\'re thinking, rough timeline, and where you\'re located…" style="' + textareaStyle + '">' + escapeAttr(form.message) + '</textarea>' +
         '</label>' +
+        // Honeypot — invisible to humans, autofill bots fill it in.
+        '<div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;opacity:0">' +
+          '<label>Company<input name="company" type="text" tabindex="-1" autocomplete="off" value=""></label>' +
+        '</div>' +
         errorBlock +
         '<button type="submit" class="btn-primary" style="margin-top:22px;width:100%;background:var(--brand);color:#F4EEE2;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:999px;cursor:pointer;box-shadow:0 12px 24px -12px rgba(52,68,47,.7)">Send my quote request →</button>' +
         '<p style="text-align:center;font-size:12.5px;color:var(--muted);margin:14px 0 0">Or just call <b style="color:var(--ink)">(250) 555-0199</b> — Alex picks up.</p>' +
@@ -505,6 +512,8 @@
       }
       errorMsg = "";
       var pending = { ...form };
+      var honeypot = (formEl.elements["company"] && formEl.elements["company"].value) || "";
+      var durationMs = Date.now() - formMountedAt;
       submitted = true;
       renderPanel();
       fetch(window.PLUME_ADMIN_URL + "/api/leads", {
@@ -516,6 +525,8 @@
           email: pending.email,
           project_type: pending.type,
           message: pending.message,
+          company: honeypot,
+          form_duration_ms: durationMs,
         }),
         keepalive: true
       }).then(function(res){
