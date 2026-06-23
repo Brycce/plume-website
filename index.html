@@ -504,12 +504,87 @@
         return;
       }
       errorMsg = "";
+      var pending = { ...form };
       submitted = true;
       renderPanel();
+      fetch(window.PLUME_ADMIN_URL + "/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: pending.name,
+          phone: pending.phone,
+          email: pending.email,
+          project_type: pending.type,
+          message: pending.message,
+        }),
+        keepalive: true
+      }).then(function(res){
+        if (!res.ok) throw new Error("HTTP " + res.status);
+      }).catch(function(){
+        submitted = false;
+        form = pending;
+        errorMsg = "Couldn't send — try calling instead.";
+        renderPanel();
+      });
     });
   }
 
   renderPanel();
+})();
+</script>
+
+<script>
+// Public-site analytics + tells the quote form where to POST. One config
+// constant: swap to https://admin.plumecontracting.ca once that subdomain is live.
+window.PLUME_ADMIN_URL = "https://plume-admin-oimo.vercel.app";
+
+(function(){
+  var ENDPOINT = window.PLUME_ADMIN_URL + "/api/track";
+
+  function sid() {
+    try {
+      var k = "pl_sid";
+      var v = sessionStorage.getItem(k);
+      if (!v) {
+        v = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        sessionStorage.setItem(k, v);
+      }
+      return v;
+    } catch (_) { return null; }
+  }
+
+  function send(type, extra){
+    try {
+      var body = {
+        type: type,
+        path: location.pathname + location.search,
+        referrer: document.referrer || null,
+        session_id: sid()
+      };
+      if (extra) Object.assign(body, extra);
+      var json = JSON.stringify(body);
+      var sent = false;
+      if (navigator.sendBeacon) {
+        try { sent = navigator.sendBeacon(ENDPOINT, new Blob([json], { type: "application/json" })); } catch (_){}
+      }
+      if (!sent) {
+        fetch(ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" }, body: json, keepalive: true }).catch(function(){});
+      }
+    } catch (_){}
+  }
+
+  send("pageview");
+
+  document.addEventListener("click", function(e){
+    var el = e.target && e.target.closest ? e.target.closest("a, button") : null;
+    if (!el) return;
+    var href = (el.getAttribute && el.getAttribute("href")) || "";
+    var label = (el.textContent || "").trim().slice(0, 60).toLowerCase();
+    if (/^tel:/i.test(href)) send("click_phone");
+    else if (/^mailto:/i.test(href)) send("click_email");
+    else if (href === "#contact" || /quote|free estimate|get in touch/.test(label)) send("click_quote_cta");
+    else if (href === "#contact") send("scroll_to_contact");
+  }, { capture: true });
 })();
 </script>
 </body>
