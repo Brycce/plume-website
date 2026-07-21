@@ -409,7 +409,7 @@
 
   // ===== Quote form =====
   var panel = document.getElementById("quote-panel");
-  var form = { name:"", phone:"", email:"", type:"", message:"" };
+  var form = { name:"", phone:"", email:"", type:"", budget:"", message:"", files:[] };
   var submitted = false;
   var errorMsg = "";
 
@@ -437,7 +437,7 @@
       document.getElementById("reset-btn").addEventListener("click", function(){
         submitted = false;
         errorMsg = "";
-        form = { name:"", phone:"", email:"", type:"", message:"" };
+        form = { name:"", phone:"", email:"", type:"", budget:"", message:"", files:[] };
         renderPanel();
       });
       return;
@@ -465,22 +465,37 @@
           '<span style="font-size:13px;font-weight:600">Email</span>' +
           '<input name="email" type="email" autocomplete="email" value="' + escapeAttr(form.email) + '" placeholder="you@email.com" style="' + baseInputStyle + '">' +
         '</label>' +
-        '<label style="display:flex;flex-direction:column;gap:7px;margin-top:16px">' +
-          '<span style="font-size:13px;font-weight:600">Project type</span>' +
-          '<select name="type" style="' + selectStyle + '">' +
-            '<option value=""' + (form.type === "" ? " selected" : "") + '>Select a service…</option>' +
-            '<option value="Renovation"' + (form.type === "Renovation" ? " selected" : "") + '>Home renovation</option>' +
-            '<option value="Finishing"' + (form.type === "Finishing" ? " selected" : "") + '>Custom finishing / millwork</option>' +
-            '<option value="Deck"' + (form.type === "Deck" ? " selected" : "") + '>Deck / fence / exterior</option>' +
-            '<option value="Construction"' + (form.type === "Construction" ? " selected" : "") + '>New construction / addition</option>' +
-            '<option value="Carpentry"' + (form.type === "Carpentry" ? " selected" : "") + '>Carpentry / repairs</option>' +
-            '<option value="Other"' + (form.type === "Other" ? " selected" : "") + '>Something else</option>' +
-          '</select>' +
-        '</label>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:16px">' +
+          '<label style="display:flex;flex-direction:column;gap:7px">' +
+            '<span style="font-size:13px;font-weight:600">Project type</span>' +
+            '<select name="type" style="' + selectStyle + '">' +
+              '<option value=""' + (form.type === "" ? " selected" : "") + '>Select a service…</option>' +
+              '<option value="Renovation"' + (form.type === "Renovation" ? " selected" : "") + '>Home renovation</option>' +
+              '<option value="Finishing"' + (form.type === "Finishing" ? " selected" : "") + '>Custom finishing / millwork</option>' +
+              '<option value="Deck"' + (form.type === "Deck" ? " selected" : "") + '>Deck / fence / exterior</option>' +
+              '<option value="Construction"' + (form.type === "Construction" ? " selected" : "") + '>New construction / addition</option>' +
+              '<option value="Carpentry"' + (form.type === "Carpentry" ? " selected" : "") + '>Carpentry / repairs</option>' +
+              '<option value="Other"' + (form.type === "Other" ? " selected" : "") + '>Something else</option>' +
+            '</select>' +
+          '</label>' +
+          '<label style="display:flex;flex-direction:column;gap:7px">' +
+            '<span style="font-size:13px;font-weight:600">Budget (optional)</span>' +
+            '<input name="budget" type="text" value="' + escapeAttr(form.budget) + '" placeholder="e.g. $5k–$10k" style="' + baseInputStyle + '">' +
+          '</label>' +
+        '</div>' +
         '<label style="display:flex;flex-direction:column;gap:7px;margin-top:16px">' +
           '<span style="font-size:13px;font-weight:600">Project details</span>' +
           '<textarea name="message" rows="4" placeholder="Tell me what you\'re thinking, rough timeline, and where you\'re located…" style="' + textareaStyle + '">' + escapeAttr(form.message) + '</textarea>' +
         '</label>' +
+        '<div style="margin-top:16px;border:2px dashed var(--line);border-radius:10px;padding:20px;text-align:center;background:rgba(27,77,62,0.03)">' +
+          '<label style="display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer">' +
+            '<span style="font-size:32px;opacity:0.5">📷</span>' +
+            '<span style="font-size:14px;font-weight:600;color:var(--brand)">Add photos (optional)</span>' +
+            '<input name="files" type="file" multiple accept="image/*" style="display:none" id="file-input-el">' +
+            '<span style="font-size:12px;color:var(--muted);max-width:320px">Upload photos of the space or any inspiration images</span>' +
+          '</label>' +
+          '<div id="file-names" style="margin-top:12px;font-size:13px;color:var(--ink)"></div>' +
+        '</div>' +
         // Honeypot — invisible to humans, autofill bots fill it in.
         '<div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;opacity:0">' +
           '<label>Company<input name="company" type="text" tabindex="-1" autocomplete="off" value=""></label>' +
@@ -491,12 +506,26 @@
       '</form>';
 
     var formEl = document.getElementById("quote-form");
-    ["name","phone","email","type","message"].forEach(function(field){
+    ["name","phone","email","type","budget","message"].forEach(function(field){
       var input = formEl.elements[field];
       if (!input) return;
       input.addEventListener("input", function(e){ form[field] = e.target.value; });
       input.addEventListener("change", function(e){ form[field] = e.target.value; });
     });
+    
+    // Handle file input separately
+    var fileInput = formEl.elements["files"];
+    if (fileInput) {
+      fileInput.addEventListener("change", function(e){ 
+        form.files = Array.from(e.target.files);
+        var fileNamesDiv = document.getElementById("file-names");
+        if (form.files.length > 0) {
+          fileNamesDiv.textContent = form.files.length + " file(s) selected: " + form.files.map(function(f){ return f.name; }).join(", ");
+        } else {
+          fileNamesDiv.textContent = "";
+        }
+      });
+    }
 
     formEl.addEventListener("submit", function(e){
       e.preventDefault();
@@ -511,23 +540,41 @@
         return;
       }
       errorMsg = "";
-      var pending = { ...form };
+      var pending = {
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        type: form.type,
+        budget: form.budget,
+        message: form.message,
+        files: form.files
+      };
       var honeypot = (formEl.elements["company"] && formEl.elements["company"].value) || "";
       var durationMs = Date.now() - formMountedAt;
       submitted = true;
       renderPanel();
+      
+      // Build form data for file uploads
+      var formData = new FormData();
+      formData.append("name", pending.name);
+      formData.append("phone", pending.phone);
+      formData.append("email", pending.email);
+      formData.append("project_type", pending.type);
+      formData.append("budget", pending.budget);
+      formData.append("message", pending.message);
+      formData.append("company", honeypot);
+      formData.append("form_duration_ms", durationMs);
+      
+      // Append files if any
+      if (pending.files && pending.files.length > 0) {
+        pending.files.forEach(function(file){
+          formData.append("files", file);
+        });
+      }
+      
       fetch(window.PLUME_ADMIN_URL + "/api/leads", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: pending.name,
-          phone: pending.phone,
-          email: pending.email,
-          project_type: pending.type,
-          message: pending.message,
-          company: honeypot,
-          form_duration_ms: durationMs,
-        }),
+        body: formData,
         keepalive: true
       }).then(function(res){
         if (!res.ok) throw new Error("HTTP " + res.status);
